@@ -1,101 +1,85 @@
-Problem Statement
+# CI/CD Cost Analyzer
 
-In modern software development, organizations often rely on CI/CD pipelines (GitHub Actions, GitLab CI, etc.) to automate building, testing, and deploying code. While CI/CD improves efficiency, it also introduces challenges:
+## 🔍 What is it?
+The **CI/CD Cost Analyzer** is a tool/dashboard that tracks and analyzes the costs of CI/CD pipelines.  
+It covers both **direct costs** (cloud compute time) and **indirect costs** (failed or redundant runs).  
+The goal is to give visibility into pipeline efficiency and enable optimization to save costs.
 
-Lack of centralized monitoring – Teams managing multiple repositories cannot easily track workflow runs, failures, or resource usage across repos.
+---
+##HLD
+<img width="611" height="693" alt="Screenshot 2025-09-29 152959" src="https://github.com/user-attachments/assets/06cb04d8-c138-42e3-86a6-4d54bf46d95b" />
 
-Cost tracking difficulty – CI/CD workflows consume compute resources, and organizations often pay for unused or redundant runs. Cloud infrastructure costs (AWS, Azure, GCP) add to the complexity.
 
-Time inefficiency – Developers spend time manually checking pipeline statuses or generating reports.
 
-Data fragmentation – Insights are scattered across GitHub/GitLab dashboards and cloud billing tools, making it hard to analyze trends, failures, and cost optimization opportunities.
 
-Goal: Build a single, user-friendly dashboard that consolidates CI/CD run metrics, highlights failures, calculates costs, and allows filtering by repository, branch, and workflow status.
+## 🎯 Why is this valuable?
+- CI/CD pipelines consume **compute, storage, and bandwidth** resources.  
+- Inefficient pipelines or frequent failures cause **significant hidden costs**.  
+- Most teams don’t track costs per pipeline/job, making optimization difficult.  
 
-Objectives
+**Benefits:**  
+- Better pipeline design  
+- Reduced wasted spend  
+- Faster and more reliable CI/CD  
 
-The main objectives of this project are:
+---
 
-Centralized CI/CD Monitoring
+## ⚙️ Components & Data Sources
+- **CI/CD Provider APIs**: GitHub Actions, GitLab CI metadata  
+- **Cloud Billing APIs**: AWS, Azure, GCP (for accurate costs)  
+- **Dashboard**: Grafana, Kibana, or custom web UI  
+- **Data Processing**: Python scripts / backend services for aggregation  
 
-Fetch workflow runs from multiple GitHub or GitLab repositories.
+---
 
-Display workflow run details such as status, conclusion, branch, and duration.
+## 📊 What Data to Track?
+- **Compute time per job** → minutes × cost per unit  
+- **Failed runs** → wasted resources  
+- **Redundant runs** → duplicated builds per commit  
+- **Cost per branch/team** → identify expensive features  
+- **Trends over time** → daily/weekly/monthly costs  
 
-Cost Analysis
+---
 
-Calculate total, failed, and redundant CI/CD run costs based on workflow duration.
+## 🔧 Workflow (Step-by-step)
+1. **Data Collection** – Connect to CI/CD system (e.g., GitHub Actions API) to collect run/job data.  
+2. **Cost Calculation** – Apply duration × rate (different for hosted vs self-hosted runners).  
+3. **Data Storage & Processing** – Store in Postgres/DB, process for daily/weekly totals.  
+4. **Visualization (Dashboard)** – Show costs, waste, redundant runs, and expensive branches.  
+5. **Alerts & Recommendations** – Notify via Slack/Email when costs spike; suggest optimizations.  
+6. **Pilot → Scale** – Start with one repo, then expand to multiple repos and integrate cloud billing.  
 
-Include optional cloud infrastructure costs from AWS, Azure, and GCP.
+---
 
-Real-Time Dashboard
+## 📝 Example Scenario
+- Team runs multiple GitHub Actions workflows daily.  
+- Flaky tests cause failed runs, wasting resources.  
+- Dashboard reveals feature branches cost 30% more.  
+- Fixes (caching, flaky test fixes, trigger optimization) reduce pipeline time by 20% and save money.  
 
-Provide auto-refreshing metrics to track pipeline performance in real time.
+---
 
-Visualize trends, distributions, and detailed workflow information using charts and tables.
+## 🤖 Bonus Capabilities
+- Automated **cost alerts** via Slack/Email  
+- Optimization suggestions (caching, parallelization)  
+- Scaling support across teams and repositories  
+- Integration with **cloud billing** for precise cost attribution  
 
-Custom Filtering & KPIs
+---
 
-Allow users to filter data by date range, branch, or workflow status.
+## 🚀 Expected Outcomes
+- Visibility into **hidden CI/CD costs**  
+- Reduce failed/duplicate run waste by **15–30%**  
+- Optimize pipeline design for efficiency  
+- Achieve measurable **cloud cost savings**  
+- Enable teams to prioritize reliability improvements  
 
-Show key metrics like total runs, successful runs, failed runs, and cost breakdowns.
+---
 
-Security & Privacy
+## 📌 Next Steps
+- Build MVP for one repository  
+- Validate accuracy of cost calculations  
+- Deploy dashboard with initial KPIs  
+- Present results and expand to multiple teams  
 
-Ensure sensitive credentials (API tokens, cloud keys) are masked and not stored in the code or logs.
 
-User-Friendly Interface
-
-Use Streamlit for a simple, interactive, web-based interface.
-
-Include navigation between Login, Repository Selection, and Dashboard pages.
-
-Solution
-
-The solution is a Streamlit-based web dashboard that integrates with GitHub/GitLab APIs and optionally with cloud billing APIs to provide centralized monitoring, cost tracking, and analytics:
-
-Login Page
-
-Users enter GitHub/GitLab username and personal access token securely.
-
-Token is masked in the UI and stored only in session state.
-
-Repository Selection
-
-Users can select one or multiple repositories to monitor.
-
-Optional input for cloud API credentials to factor in infrastructure costs.
-
-Dashboard Page
-
-Displays KPIs: total runs, successful/failed runs, overall/failed/redundant costs.
-
-Provides interactive filters for date range, branch, and workflow status.
-
-Visualizations include trend lines, bar charts, pie charts, and detailed tables.
-
-Auto-refreshes every minute to show up-to-date pipeline data.
-
-Cost Calculation Logic
-
-Workflow duration × cost-per-minute gives CI/CD run cost.
-
-Redundant runs are detected (e.g., success runs on stale branches).
-
-Cloud costs are optionally included.
-
-Security Measures
-
-All sensitive inputs are masked (type="password").
-
-.env files or other secret storage files are ignored in Git.
-
-API tokens are never printed or exposed in logs or DataFrames.
-
-Benefits
-
-Centralized monitoring reduces manual tracking effort.
-
-Cost visualization enables better resource optimization.
-
-Clear insights into failures and redundant runs help improve CI/CD efficiency.
