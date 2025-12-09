@@ -14,6 +14,8 @@ from dotenv import load_dotenv
 # Load environment variables
 # ----------------------
 load_dotenv()
+AI_API_KEY = os.getenv("AI_API_KEY")   # OpenAI / Azure OpenAI key
+AI_MODEL = "gpt-4o-mini" 
 SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")  # Slack Incoming Webhook URL
 
 # ----------------------
@@ -31,6 +33,100 @@ def send_slack_message(text: str):
     except Exception as e:
         print("Slack send error:", e)
         return False
+
+# ----------------------
+# Agentic AI helper
+# ----------------------
+def generate_ai_insights(df: pd.DataFrame) -> str:
+    """
+    Agentic AI analysis that explains cost drivers,
+    finds optimization opportunities, and gives actions.
+    """
+
+    if df.empty:
+        return "No data available for AI analysis."
+
+    # ---- 1. Rule-based metrics from df ----
+    total_cost = df["cost"].sum()
+    failed_cost = df[df["conclusion"] == "failure"]["cost"].sum()
+
+    if "is_redundant" in df.columns:
+        redundant = df[df["is_redundant"]]
+        redundant_cost = redundant["cost"].sum()
+    else:
+        redundant_cost = 0.0
+        redundant = df.iloc[0:0]  # empty same-structure df
+
+    top_branches = (
+        df.groupby("branch")["cost"]
+        .sum()
+        .sort_values(ascending=False)
+        .head(3)
+    )
+
+    long_running = (
+        df.sort_values("duration_min", ascending=False)
+        .head(5)
+    )
+
+    # ---- 2. Build context string for the AI model ----
+    ai_context = f"""
+CI/CD Cost Summary:
+Total Cost: {total_cost:.2f}
+Failed Cost: {failed_cost:.2f}
+Redundant Cost: {redundant_cost:.2f}
+
+Top Expensive Branches (by cost):
+{top_branches.to_string()}
+
+Longest Running Workflows:
+{long_running[['repo','branch','duration_min']].to_string(index=False)}
+
+Your job as an AI agent:
+- Identify cost anomalies and waste.
+- Suggest concrete actions to reduce unnecessary spending.
+- Flag redundant or stale branches and noisy workflows.
+- Recommend process changes for developers.
+- Estimate cost impact if failures reduce by 20%.
+Respond in clear bullet points.
+"""
+
+    # ---- 3. Fallback: If no AI key, still give rule-based hints ----
+    if not AI_API_KEY:
+        return (
+            "⚠️ AI API Key not found. Showing rule-based insights only.\n\n"
+            f"Top Cost Drivers (Branches by cost):\n{top_branches}\n\n"
+            "Suggestions:\n"
+            "- Clean up stale branches with successful but redundant builds.\n"
+            "- Reduce triggers on the most expensive branches.\n"
+            "- Investigate the longest-running workflows for optimization.\n"
+            "- Optimize the longest-running workflows to reduce pipeline duration."
+        )
+
+    # ---- 4. Call LLM using HTTP API ----
+    try:
+        payload = {
+            "model": AI_MODEL,
+            "messages": [
+                {"role": "system", "content": "You are an intelligent CI/CD cost optimization agent."},
+                {"role": "user", "content": ai_context}
+            ]
+        }
+
+        resp = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {AI_API_KEY}"},
+            json=payload,
+            timeout=20
+        )
+
+        resp.raise_for_status()
+        data = resp.json()
+        text = data["choices"][0]["message"]["content"]
+        return text
+
+    except Exception as e:
+        return f"AI Error while generating insights: {e}"
 
 # ----------------------
 # SQLite helpers
@@ -94,6 +190,9 @@ if "page" not in st.session_state:
     st.session_state["page"] = "login"
 if "last_alert_key" not in st.session_state:
     st.session_state["last_alert_key"] = None
+if "ai_output" not in st.session_state:
+    st.session_state["ai_output"] = ""
+
 
 # ----------------------
 # Page 1: Login
@@ -256,7 +355,34 @@ elif st.session_state["page"] == "dashboard":
     # ----------------------
     # Charts
     # ----------------------
+
+        # ----------------------
+    # Agentic AI Section
+    # ----------------------
+    # ----------------------
+# Agentic AI Section
+# ----------------------
+st.subheader("🤖 Agentic AI – Automated Insights & Recommendations")
+
+# Button to (re)generate insights
+if st.button("Generate AI Insights"):
+    with st.spinner("AI is analysing your CI/CD workflows..."):
+        st.session_state["ai_output"] = generate_ai_insights(df)
+
+# Optional: button to clear
+if st.button("Clear AI Insights"):
+    st.session_state["ai_output"] = ""
+
+# Show the latest AI output inside an open/close panel
+if st.session_state["ai_output"]:
+    with st.expander("📌 AI Recommendations", expanded=True):  # set False if you want it closed by default
+        st.write(st.session_state["ai_output"])
+
+    # ----------------------
+    # Charts
+    # ----------------------
     st.subheader("📊 Visual Insights")
+
 
     fig1 = px.bar(df, x="repo", color="conclusion", title="Success vs Failed Runs per Repo", barmode="group")
     st.plotly_chart(fig1, use_container_width=True)
@@ -285,8 +411,20 @@ elif st.session_state["page"] == "dashboard":
         report_text += "\nRecent Runs:\n"
         recent = df.sort_values("Created At", ascending=False).head(5)
         for _, r in recent.iterrows():
-            report_text += f"{r['Created At'].strftime('%Y-%m-%d %H:%M')} | {r['repo']} | {r['branch']} | {r['conclusion']} | ${round(r['cost'],2)}\n"
+            report_text += (
+                f"{r['Created At'].strftime('%Y-%m-%d %H:%M')} | "
+                f"{r['repo']} | {r['branch']} | {r['conclusion']} | "
+                f"${round(r['cost'],2)}\n"
+            )
+
+        # 👉 New: add AI summary into Slack message
+        ai_summary = generate_ai_insights(df)
+        report_text += "\n*AI Insights:*\n"
+        # avoid overly long messages in Slack
+        report_text += ai_summary[:1500]
+
         if send_slack_message(report_text):
-            st.success("✅ Report sent to Slack")
+            st.success("✅ Report with AI insights sent to Slack")
         else:
             st.error("❌ Failed to send report to Slack")
+
