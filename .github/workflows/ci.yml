@@ -1,0 +1,91 @@
+name: CI/CD Pipeline for Streamlit CI/CD Dashboard
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  source:
+    name: Checkout Source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+  build:
+    name: Install Dependencies & Lint
+    runs-on: ubuntu-latest
+    needs: source
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run basic linting
+        run: |
+          pip install flake8
+          flake8 --exit-zero .
+
+  test:
+    name: Run Test Suite
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Run tests (placeholder)
+        run: |
+          echo "No tests added yet. Skipping."
+          echo "Add pytest tests later."
+
+  package:
+    name: Build Podman Container
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Podman
+        run: |
+          sudo apt update
+          sudo apt install -y podman
+
+      - name: Build container image using Podman
+        run: |
+          podman build -t cicd-dashboard:latest .
+
+      - name: Save image as artifact
+        run: |
+          podman save -o cicd-dashboard.tar cicd-dashboard:latest
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: podman-image
+          path: cicd-dashboard.tar
+
+  deploy:
+    name: Deploy to Streamlit Cloud (Auto)
+    runs-on: ubuntu-latest
+    needs: package
+    steps:
+      - name: Deployment Note
+        run: |
+          echo "Streamlit Cloud automatically redeploys when code is pushed to main."
+          echo "No manual container deployment required."
