@@ -2,3 +2,9 @@
 *.key
 *.pem
 credentials.json
+__pycache__/
+cicd_data.db
+*.pyc
+.DS_Store
+.vscode/
+.venv/

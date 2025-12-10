@@ -5,5 +5,7 @@ requests==2.31.0
 python-dotenv==1.0.1
 streamlit-autorefresh==1.0.1
 pytz==2025.2
-
+pytest
+flake8
+mypy
 
